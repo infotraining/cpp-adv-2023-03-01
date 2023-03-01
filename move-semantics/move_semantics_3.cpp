@@ -2,6 +2,7 @@
 
 #include <catch2/catch_test_macros.hpp>
 #include <iostream>
+#include <utility>
 
 ////////////////////////////////////////////////////////////////////////////
 // Data - class with copy & move semantics (user provided implementation)
@@ -28,7 +29,7 @@ public:
         std::cout << "Data(" << name_ << ")\n";
     }
 
-    Data(const Data& other)
+    Data(const Data& other) // copy constructor
         : name_(other.name_)
         , size_(other.size_)
     {
@@ -37,7 +38,7 @@ public:
         std::copy(other.begin(), other.end(), data_);
     }
 
-    Data& operator=(const Data& other)
+    Data& operator=(const Data& other) // copy assignment
     {
         Data temp(other);
         swap(temp);
@@ -47,7 +48,29 @@ public:
         return *this;
     }
 
-    // TODO: move semantics
+    // move semantics
+    Data(Data&& source)
+        : name_(std::move(source.name_))
+        , data_(std::exchange(source.data_, nullptr))
+        , size_(std::exchange(source.size_, 0))
+    {
+        std::cout << "Data(" << name_ << ": mv)\n";
+    }
+
+    Data& operator=(Data&& source)
+    {
+        if (this != &source)
+        {
+            delete[] data_;
+            name_ = std::move(source.name_);
+            data_ = std::exchange(source.data_);
+            size_ = std::exchange(source.size_);
+        }
+
+        std::cout << "Data=(" << name_ << ": mv)\n";
+
+        return *this;
+    }
 
     ~Data()
     {
@@ -95,4 +118,20 @@ TEST_CASE("Data & move semantics")
 
     Data backup = ds1; // copy
     print("backup", backup);
+
+    Data target = std::move(ds1);
+    print("target", target);
+}
+
+TEST_CASE("copy - how it works")
+{
+    std::vector<int> vec = {1, 2, 3, 4};
+    std::vector<int> backup1(vec.size());
+
+    std::copy(vec.begin(), vec.end(), backup1.begin());
+
+    int* tab = new int[vec.size()]; // dynamic array - allocate memory new[]
+    std::copy(vec.begin(), vec.end(), tab);
+
+    delete[] tab; // free memory
 }

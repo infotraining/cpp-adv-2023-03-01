@@ -4,8 +4,9 @@
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
-#include <vector>
 #include <memory>
+#include <utility>
+#include <vector>
 
 namespace LegacyCode
 {
@@ -27,22 +28,40 @@ namespace LegacyCode
             std::strcpy(buffer_, "Default text!");
         }
 
-        Paragraph(const Paragraph& p)
-            : buffer_(new char[1024])
-        {
-            std::strcpy(buffer_, p.buffer_);
-        }
-
         Paragraph(const char* txt)
             : buffer_(new char[1024])
         {
             std::strcpy(buffer_, txt);
         }
 
+        // copy constructor
+        Paragraph(const Paragraph& p)
+            : buffer_(new char[1024])
+        {
+            std::strcpy(buffer_, p.buffer_);
+        }
+
+        // copy assignment op
         Paragraph& operator=(const Paragraph& p)
         {
             Paragraph temp(p);
             swap(temp);
+
+            return *this;
+        }
+
+        Paragraph(Paragraph&& source)
+            : buffer_{std::exchange(source.buffer_, nullptr)}
+        { }
+
+        Paragraph& operator=(Paragraph&& source)
+        {
+            if (this != &source)
+            {
+                delete[] buffer_;
+
+                buffer_ = std::exchange(source.buffer_, nullptr);
+            }
 
             return *this;
         }
@@ -67,7 +86,7 @@ namespace LegacyCode
             delete[] buffer_;
         }
     };
-}
+} // namespace LegacyCode
 
 class Shape
 {
@@ -120,6 +139,10 @@ struct ShapeGroup : public Shape
     }
 
     // TODO - implement adding a shape to a shapes container
+    void add(std::unique_ptr<Shape> shp)
+    {
+        shapes.push_back(std::move(shp));
+    }
 };
 
 #endif /*PARAGRAPH_HPP_*/

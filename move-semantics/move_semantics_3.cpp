@@ -19,6 +19,9 @@ public:
     using iterator = int*;
     using const_iterator = const int*;
 
+    Data() : name_(""), data_{nullptr}, size_{0}
+    {}
+
     Data(std::string name, std::initializer_list<int> list)
         : name_{std::move(name)}
         , size_{list.size()}
@@ -63,8 +66,8 @@ public:
         {
             delete[] data_;
             name_ = std::move(source.name_);
-            data_ = std::exchange(source.data_);
-            size_ = std::exchange(source.size_);
+            data_ = std::exchange(source.data_, nullptr);
+            size_ = std::exchange(source.size_, 0);
         }
 
         std::cout << "Data=(" << name_ << ": mv)\n";
@@ -134,4 +137,68 @@ TEST_CASE("copy - how it works")
     std::copy(vec.begin(), vec.end(), tab);
 
     delete[] tab; // free memory
+}
+
+class DataSet
+{
+    std::string name_;
+    Data row_1_;
+    Data row_2_;
+
+public:
+    DataSet(std::string name, Data row_1, Data row_2)
+        : name_(std::move(name))
+        , row_1_(std::move(row_1))
+        , row_2_(std::move(row_2))
+    { }
+
+    void print_rows() const
+    {
+        std::cout << name_ << "\n";
+        print("r1", row_1_);
+        print("r2", row_2_);
+    }
+};
+
+TEST_CASE("using DataSet")
+{
+    DataSet ds1{"ds1", Data{"a", {1, 2, 3}}, Data{"b", {4, 5, 6}}};
+    ds1.print_rows();
+
+    DataSet backup = ds1; // cc
+    backup.print_rows();
+
+    DataSet target = std::move(ds1); // mv
+    target.print_rows();
+}
+
+struct X
+{
+    Data ds;
+
+    X() = default;
+
+    X(std::initializer_list<int> data) : ds{"ds", data}
+    {}
+
+    // X(const X&) = default;
+    // X& operator=(const X&) = default;
+    // X(X&&) = default;
+    // X& operator=(X&&) = default;
+    // ~X() {}
+
+    void print() const
+    {
+        ::print("ds", ds);
+    }
+};
+
+TEST_CASE("special functions in class/struct")
+{
+    X x1{{1, 2, 3}};   
+
+    X x2 = x1;
+    X x3 = std::move(x1);
+
+    X x4;
 }

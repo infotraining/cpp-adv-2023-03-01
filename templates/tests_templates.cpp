@@ -1,10 +1,12 @@
 #include "utils.hpp"
 
+#include <algorithm>
 #include <catch2/catch_test_macros.hpp>
 #include <iostream>
 #include <memory>
 #include <string>
 #include <vector>
+#include <list>
 
 using Utils::Gadget;
 
@@ -74,15 +76,78 @@ TEST_CASE("function templates")
     int (*ptr_fun)(int, int) = &maximum<int>; // taking address of template function
 }
 
+// int* my_find(int* begin, int* end, int value)
+// {
+//     for(int* pos = begin; pos != end; ++pos)
+//     {
+//         if (*pos == value)
+//             return pos;
+//     }
+
+//     return end;
+// }
+
+// std::vector<std::string>::iterator my_find(std::vector<std::string>::iterator begin, std::vector<std::string>::iterator end, std::string value)
+// {
+//     for(std::vector<std::string>::iterator pos = begin; pos != end; ++pos)
+//     {
+//         if (*pos == value)
+//             return pos;
+//     }
+
+//     return end;
+// }
+
+template <typename Iterator, typename TValue>
+Iterator my_find(Iterator begin, Iterator end, const TValue& value)
+{
+    for (Iterator pos = begin; pos != end; ++pos)
+    {
+        if (*pos == value)
+            return pos;
+    }
+
+    return end;
+}
+
+template <typename Iterator, typename TTarget>
+void my_pusher(Iterator begin, Iterator end, TTarget& target)
+{
+    for (Iterator pos = begin; pos != end; ++pos)
+    {
+        target.push_back(*pos);
+    }
+}
+
+
+template <typename InputIterator, typename OutputIterator>
+void my_copy(InputIterator begin, InputIterator end, OutputIterator target)
+{
+    for (InputIterator pos = begin; pos != end; ++pos)
+    {
+        *target = *pos;
+        ++target;
+    }
+}
+
 TEST_CASE("my_find - template function")
 {
     int tab[10] = {1, 2, 4, 7, 3, 42, 7, 0, 1, 99};
+    
+    int tab_target[10];
+    my_copy(std::begin(tab), std::end(tab), std::begin(tab_target));
 
-    int* pos = my_find(tab, tab+10, 42);
+    for(const auto& item : tab_target)
+    {
+        std::cout << item << " ";
+    }
+    std::cout << "\n";
+
+    int* pos = std::find(tab, tab + 10, 42);
     REQUIRE(*pos == 42);
 
-    pos = my_find(tab, tab+10, 665);
-    REQUIRE(pos == tab+10);
+    pos = my_find(tab, tab + 10, 665);
+    REQUIRE(pos == tab + 10);
 
     std::vector<std::string> words = {"one", "two", "three", "four"};
 
@@ -91,8 +156,19 @@ TEST_CASE("my_find - template function")
 
     it = my_find(words.begin(), words.end(), std::string("zero"));
     REQUIRE(it == words.end());
-}
 
+    std::list<int> numbers = {1, 2, 3, 665, 8};
+
+    auto pos_less_evil = my_find(numbers.begin(), numbers.end(), 665);
+    REQUIRE(*pos_less_evil == 665);
+
+    std::vector<int> target(numbers.size());
+    my_copy(numbers.begin(), numbers.end(), target.begin());
+    REQUIRE(target == std::vector{1, 2, 3, 665, 8});
+
+    my_pusher(numbers.begin(), numbers.end(), target);
+    REQUIRE(target == std::vector{1, 2, 3, 665, 8, 1, 2, 3, 665, 8});
+}
 
 TEST_CASE("class templates")
 {

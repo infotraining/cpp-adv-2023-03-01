@@ -68,12 +68,22 @@ protected:
     }
 };
 
-class ConcreteObserver1 : public Observer
+class ConcreteObserver1 : public Observer, public std::enable_shared_from_this<ConcreteObserver1>
 {
 public:
     virtual void update(const std::string& event)
     {
         std::cout << "ConcreteObserver1: " << event << std::endl;
+    }
+
+    void register_me_as_observer(Subject& s)
+    {
+        s.register_observer(this->shared_from_this());
+    }
+
+    void do_stuff()
+    {
+        std::cout << "ConcreteObserver1::do_stuff()\n";
     }
 };
 
@@ -92,7 +102,13 @@ TEST_CASE("using observer pattern")
 
     Subject s;
 
-    auto o1 = std::make_shared<ConcreteObserver1>();
+    std::shared_ptr<Observer> o1 = std::make_shared<ConcreteObserver1>();
+    
+    // dynamic_cast
+    std::shared_ptr<ConcreteObserver1> co1 = std::dynamic_pointer_cast<ConcreteObserver1>(o1);
+    if (co1)
+        co1->do_stuff();
+
     s.register_observer(o1);
 
     {

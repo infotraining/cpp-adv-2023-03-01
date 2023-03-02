@@ -3,6 +3,7 @@
 #include <catch2/catch_test_macros.hpp>
 #include <memory>
 #include <vector>
+#include <map>
 
 using Utils::Gadget;
 
@@ -160,4 +161,51 @@ TEST_CASE("unique_ptr<T[]>")
     std::unique_ptr<Gadget[]> tab(new Gadget[10]);
 
     tab[4].name();
+}
+
+TEST_CASE("shared_ptrs")
+{
+    std::map<std::string, std::shared_ptr<Gadget>> gadgets;
+    std::weak_ptr<Gadget> wp_gadget;
+
+    {
+        //auto sp1 = std::make_shared<Gadget>(42, "shared_gadget#1");
+
+        //std::shared_ptr<Gadget> sp1 = ModernCpp::get_gadget("shared_gadget#1");
+        
+        std::unique_ptr<Gadget> up1 = ModernCpp::get_gadget("shared_gadget#1");
+        std::shared_ptr<Gadget> sp1 = std::move(up1);
+
+        wp_gadget = sp1;
+
+        REQUIRE(sp1.use_count() == 1);
+
+        std::cout << "using " << sp1->name() << "\n";
+        
+        {
+            std::shared_ptr<Gadget> sp2 = sp1; // cc - increments ref count
+
+            REQUIRE(sp1.use_count() == 2);
+
+            gadgets.emplace("AA11", sp2);
+
+            REQUIRE(gadgets["AA11"]->name() == "shared_gadget#1");
+
+            REQUIRE(sp1.use_count() == 3);
+        } // ~sp2 decreases ref count
+
+        REQUIRE(sp1.use_count() == 2);
+    } // ~sp1 decreased ref count
+
+    std::cout << "using " << gadgets["AA11"]->name() << "\n";
+
+    gadgets.clear(); // ref count is set to zero -> ~Gadget()
+
+    std::cout << "----------------\n";
+
+    std::shared_ptr<Gadget> living_gadget = wp_gadget.lock();
+
+    REQUIRE(living_gadget == nullptr);
+
+    REQUIRE_THROWS_AS(std::shared_ptr<Gadget>(wp_gadget), std::bad_weak_ptr);
 }

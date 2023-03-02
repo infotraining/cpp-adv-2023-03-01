@@ -4,6 +4,7 @@
 #include <set>
 #include <stdexcept>
 #include <string>
+#include <memory>
 #include <catch2/catch_test_macros.hpp>
 
 class Observer
@@ -15,20 +16,24 @@ public:
 
 class Subject
 {
+private:
+    using ObserverWPtr = std::weak_ptr<Observer>;
+    using ObserverWPtrComparer = std::owner_less<ObserverWPtr>;
+ 
     int state_;
-    std::set<Observer*> observers_;
+    std::set<ObserverWPtr, ObserverWPtrComparer> observers_;
 
 public:
     Subject() : state_(0)
     {
     }
 
-    void register_observer(Observer* observer)
+    void register_observer(ObserverWPtr observer)
     {
         observers_.insert(observer);
     }
 
-    void unregister_observer(Observer* observer)
+    void unregister_observer(ObserverWPtr observer)
     {
         observers_.erase(observer);
     }
@@ -45,9 +50,20 @@ public:
 protected:
     void notify(const std::string& event_args)
     {
-        for (Observer* observer : observers_)
+        for (auto it = observers_.begin(); it != observers_.end();)
         {
-            observer->update(event_args);
+            ObserverWPtr observer = *it;
+
+            std::shared_ptr<Observer> living_observer = observer.lock();
+            if (living_observer)
+            {
+                living_observer->update(event_args);
+                ++it;
+            }
+            else
+            {
+                it = observers_.erase(it);
+            }
         }
     }
 };
@@ -72,23 +88,23 @@ public:
 
 TEST_CASE("using observer pattern")
 {
-    // using namespace std;
+    using namespace std;
 
-    // Subject s;
+    Subject s;
 
-    // ConcreteObserver1* o1 = new ConcreteObserver1;
-    // s.register_observer(o1);
+    auto o1 = std::make_shared<ConcreteObserver1>();
+    s.register_observer(o1);
 
-    // {
-    //     ConcreteObserver2* o2 = new ConcreteObserver2;
-    //     s.register_observer(o2);
+    {
+        auto o2 = std::make_shared<ConcreteObserver2>();
+        s.register_observer(o2);
 
-    //     s.set_state(1);
+        s.set_state(1);
 
-    //     delete o2;
+        o2.reset();
 
-    //     cout << "End of scope." << endl;
-    // }
+        cout << "End of scope." << endl;
+    }
 
-    // s.set_state(2);
+    s.set_state(2); // call of update() on deleted object
 }

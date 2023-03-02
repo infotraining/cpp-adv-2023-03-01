@@ -72,34 +72,37 @@ void reset_value(Gadget& g, int n)
 //////////////////////////////////////////////
 // TODO - modernize the code below
 
-Gadget* create_gadget(int arg)
+std::unique_ptr<Gadget> create_gadget(int arg)
 {
-    return new Gadget(arg);
+    return std::make_unique<Gadget>(arg);
 }
 
 class Player
 {
-    Gadget* gadget_;
-    std::ostream* logger_;
+    std::unique_ptr<Gadget> gadget_; // owning pointer
+    std::ostream* logger_; // non-owning pointer
 
-    Player(const Player&);
-    Player& operator=(const Player&);
+
 
 public:
-    Player(Gadget* g, std::ostream* logger = NULL)
-        : gadget_(g)
+    Player(std::unique_ptr<Gadget> g, std::ostream* logger = nullptr)
+        : gadget_(std::move(g))
         , logger_(logger)
     {
-        if (g == NULL)
+        if (!g)
             throw std::invalid_argument("Gadget can not be null");
     }
+
+    Player(const Player&) = delete;
+    Player& operator=(const Player&) = delete;
+
+    Player(Player&&) = default;
+    Player& operator=(Player&&) = default;
 
     ~Player()
     {
         if (logger_)
-            *logger_ << "Destroing a gadget: " << gadget_->id() << std::endl;
-
-        delete gadget_;
+            *logger_ << "Destroying a gadget: " << gadget_->id() << std::endl;
     }
 
     void play()
@@ -111,58 +114,49 @@ public:
     }
 };
 
-void unsafe1() // TODO: modernize using smart pointers
+void unsafe1()
 {
-    Gadget* ptr_gdgt = create_gadget(4);
+    std::unique_ptr<Gadget> ptr_gdgt = create_gadget(4);
 
-    /* kod korzystajacy z ptrX */
+    /* kod korzystajacy z ptr_gdgt */
 
     reset_value(*ptr_gdgt, 5);
 
     ptr_gdgt->unsafe();
-
-    delete ptr_gdgt;
 }
 
-void unsafe2() // TODO: modernize using smart pointers
+void unsafe2()
 {
     int size = 10;
 
-    Gadget* buffer = LegacyCode::create_many_gadgets(size);
+    std::unique_ptr<Gadget[]> buffer(LegacyCode::create_many_gadgets(size));
 
     for (int i = 0; i < size; ++i)
         buffer[0].unsafe();
-
-    delete[] buffer;
 }
 
 void unsafe3() // TODO: modernize using smart pointers
 {
-    vector<Gadget*> my_gadgets;
+    vector<std::unique_ptr<Gadget>> my_gadgets;
 
     my_gadgets.push_back(create_gadget(87));
     my_gadgets.push_back(create_gadget(12));
-    my_gadgets.push_back(new Gadget(98));
+    my_gadgets.push_back(std::make_unique <Gadget>(98));
 
     int value_generator = 0;
-    for (vector<Gadget*>::iterator it = my_gadgets.begin(); it != my_gadgets.end(); ++it)
+    for (const auto& ptr_g : my_gadgets)
     {
-        cout << "Gadget's old id: " << (*it)->id() << endl;
-        reset_value(**it, ++value_generator);
+        cout << "Gadget's old id: " << ptr_g->id() << endl;
+        reset_value(*ptr_g, ++value_generator);
     }
 
-    delete my_gadgets[0];
-    my_gadgets[0] = NULL;
+    my_gadgets[0] = nullptr;
 
-    Player p(my_gadgets.back());
-    my_gadgets.back() = NULL;
+    Player p(std::move(my_gadgets.back()));
+    my_gadgets.pop_back();
     p.play();
 
     my_gadgets[1]->unsafe();
-
-    // cleanup
-    for (vector<Gadget*>::iterator it = my_gadgets.begin(); it != my_gadgets.end(); ++it)
-        delete *it;
 }
 
 int main() try

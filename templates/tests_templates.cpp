@@ -1,12 +1,14 @@
 #include "utils.hpp"
 
 #include <algorithm>
+#include <array>
 #include <catch2/catch_test_macros.hpp>
 #include <iostream>
 #include <list>
 #include <memory>
 #include <string>
 #include <vector>
+#include <map>
 
 using Utils::Gadget;
 
@@ -328,17 +330,61 @@ public:
     std::string to_string() const;
 };
 
-void print(const ValuePair<int, std::string>& vp)
-{
-    std::cout << "ValuePair: " <<  vp.to_string() << "\n";
-}
-
 template <typename T1, typename T2>
 std::string ValuePair<T1, T2>::to_string() const
 {
     std::stringstream ss;
     ss << "[ " << first_ << ", " << second_ << "]";
     return ss.str();
+}
+
+// partial specialization
+template <typename T>
+class ValuePair<T, T>
+{
+    T items_[2];
+
+public:
+    ValuePair(T fst, T snd)
+        : items_{std::move(fst), std::move(snd)}
+    { }
+
+    T& first() // read-write
+    {
+        return items_[0];
+    }
+
+    const T& first() const // read-only
+    {
+        return items_[0];
+    }
+
+    T& second()
+    {
+        return items_[1];
+    }
+
+    const T& second() const
+    {
+        return items_[1];
+    }
+
+    const T& maximum() const
+    {
+        return first() < second() ? second() : first();
+    }
+
+    std::string to_string() const
+    {
+        std::stringstream ss;
+        ss << "[ " << first() << ", " << second() << "]";
+        return ss.str();
+    }
+};
+
+void print(const ValuePair<int, std::string>& vp)
+{
+    std::cout << "ValuePair: " << vp.to_string() << "\n";
 }
 
 TEST_CASE("class templates")
@@ -354,14 +400,125 @@ TEST_CASE("class templates")
     REQUIRE(vp2.second() == std::vector<int>{1, 2, 3, 4});
 
     std::cout << vp2.to_string() << "\n";
+
+    ValuePair<int, int> vp3{42, 665};
+    std::cout << "vp3: " << vp3.to_string() << " - max: " << vp3.maximum() << "\n";
 }
+
+template <typename T, size_t N>
+struct Array
+{
+    T items[N];
+
+    using iterator = T*;
+    using const_iterator = const T*;
+    using reference = T&;
+    using const_reference = const T&;
+
+    size_t size() const
+    {
+        return N;
+    }
+
+    iterator begin()
+    {
+        return items;
+    }
+
+    iterator end()
+    {
+        return items + N;
+    }
+
+    const_iterator begin() const
+    {
+        return items;
+    }
+
+    const_iterator end() const
+    {
+        return items + N;
+    }
+
+    reference operator[](size_t index)
+    {
+        return items[index];
+    }
+
+    const_reference operator[](size_t index) const
+    {
+        return items[index];
+    }
+};
+
+template <typename TContainer>
+void print(const TContainer& container, const std::string& desc = "")
+{
+    std::cout << desc << ": [ ";
+    for(typename TContainer::const_iterator it = container.begin(); it != container.end(); ++it) // ‘TContainer::const_iterator’ - ‘TContainer’ is a dependent scope
+    {
+        std::cout << *it << " ";
+    }
+    std::cout << "]\n";
+}
+
+
+TEST_CASE("template parameters")
+{
+    const Array<int, 10> arr1{1, 2, 3, 4, 5};
+
+    REQUIRE(arr1.size() == 10);
+
+    // arr1[7] = 7;
+    int value = arr1[3];
+
+    for (const auto& item : arr1)
+        std::cout << item << " ";
+    std::cout << "\n";
+
+    print(arr1, "arr1");
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////
+
+template <typename T>
+using Dictionary = std::map<std::string, T>;
+
+template <typename T>
+using DictionaryDesc = std::map<std::string, T, std::greater<T>>;
+
+template <typename T>
+using Buffer = Array<T, 1024>;
+
+template <typename T>
+using LargeBuffer = Array<T, 2048>;
+
+template <typename TDict = Dictionary<std::string>>
+class Translator
+{
+    TDict dict;
+};
 
 TEST_CASE("template aliases")
 {
-    // TODO
+    Dictionary<int> dict = { {"one", 1}, {"two", 2} };
+
+    Buffer<uint8_t> buffer = {};
+    LargeBuffer<uint8_t> large_buffer = {};
 }
+
+//////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////
+
+const double pi_d = 3.141592653589793238462643383279;
+const float pi_f = 3.141592653589793238462643383279;
+
+template <typename T>
+const T pi = 3.141592653589793238462643383279;
 
 TEST_CASE("template variables")
 {
-    // TODO
+    std::cout << "pi: " << pi<double> << "\n";
+    std::cout << "pi: " << pi<float> << "\n";
 }

@@ -3,10 +3,10 @@
 #include <algorithm>
 #include <catch2/catch_test_macros.hpp>
 #include <iostream>
+#include <list>
 #include <memory>
 #include <string>
 #include <vector>
-#include <list>
 
 using Utils::Gadget;
 
@@ -119,7 +119,6 @@ void my_pusher(Iterator begin, Iterator end, TTarget& target)
     }
 }
 
-
 template <typename InputIterator, typename OutputIterator>
 void my_copy(InputIterator begin, InputIterator end, OutputIterator target)
 {
@@ -133,11 +132,11 @@ void my_copy(InputIterator begin, InputIterator end, OutputIterator target)
 TEST_CASE("my_find - template function")
 {
     int tab[10] = {1, 2, 4, 7, 3, 42, 7, 0, 1, 99};
-    
+
     int tab_target[10];
     my_copy(std::begin(tab), std::end(tab), std::begin(tab_target));
 
-    for(const auto& item : tab_target)
+    for (const auto& item : tab_target)
     {
         std::cout << item << " ";
     }
@@ -170,9 +169,191 @@ TEST_CASE("my_find - template function")
     REQUIRE(target == std::vector{1, 2, 3, 665, 8, 1, 2, 3, 665, 8});
 }
 
+// template <typename T>
+// T my_exchange(T& old_value, T new_value)
+// {
+//     T temp = std::move(old_value);
+//     old_value = std::move(new_value);
+//     return temp;
+// }
+
+namespace ver_1_0
+{
+    template <typename T, typename U>
+    T my_exchange(T& old_value, U new_value)
+    {
+        T value = std::move(old_value);
+        old_value = std::move(new_value);
+        return value;
+    }
+} // namespace ver_1_0
+
+template <typename T, typename U>
+T my_exchange(T& old_value, U&& new_value)
+{
+    T value = std::move(old_value);
+    old_value = std::forward<U>(new_value);
+    return value;
+}
+
+namespace Explain
+{
+    void set(std::string& value, const std::string& new_value)
+    {
+        value = new_value; // copy of new_value to value
+    }
+
+    void set(std::string& value, std::string&& new_value)
+    {
+        value = std::move(new_value);
+    }
+} // namespace Explain
+
+template <typename T, typename U>
+void set(T& value, U&& new_value /*universal reference*/)
+{
+    value = std::forward<U>(new_value); /*prefect forwarding*/
+}
+
+TEST_CASE("set")
+{
+    using namespace std::literals;
+
+    std::string str;
+    std::string value = "text";
+
+    set(str, value);
+    REQUIRE(str == "text");
+
+    set(str, "another text"s);
+    REQUIRE(str == "another text"s);
+}
+
+TEST_CASE("exchange")
+{
+    SECTION("int")
+    {
+        SECTION("lvalue")
+        {
+            int x = 10;
+            int new_value = 42;
+            int y = my_exchange(x, new_value);
+
+            REQUIRE(y == 10);
+            REQUIRE(x == 42);
+            REQUIRE(new_value == 42);
+        }
+
+        SECTION("rvalue")
+        {
+            int x = 10;
+            int y = my_exchange(x, 42);
+
+            REQUIRE(y == 10);
+            REQUIRE(x == 42);
+        }
+    }
+
+    SECTION("string")
+    {
+        using namespace std::literals;
+        SECTION("lvalue")
+        {
+            std::string s1 = "one";
+            std::string new_value = "two";
+            std::string s2 = my_exchange(s1, new_value);
+
+            REQUIRE(s2 == "one");
+            REQUIRE(s1 == "two");
+            REQUIRE(new_value == "two");
+        }
+
+        SECTION("rvalue")
+        {
+            std::string s1 = "one";
+            std::string s2 = my_exchange(s1, "two"s);
+
+            REQUIRE(s2 == "one");
+            REQUIRE(s1 == "two");
+        }
+    }
+}
+
+///////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////
+
+template <typename T>
+std::ostream& operator<<(std::ostream& out, const std::vector<T>& vec)
+{
+    out << "std::vector{ ";
+    for (const auto& item : vec)
+        out << item << " ";
+    out << "}";
+
+    return out;
+}
+
+template <typename T1, typename T2>
+class ValuePair
+{
+    T1 first_;
+    T2 second_;
+
+public:
+    ValuePair(T1 fst, T2 snd)
+        : first_{std::move(fst)}
+        , second_{std::move(snd)}
+    { }
+
+    T1& first() // read-write
+    {
+        return first_;
+    }
+
+    const T1& first() const // read-only
+    {
+        return first_;
+    }
+
+    T2& second()
+    {
+        return second_;
+    }
+
+    const T2& second() const
+    {
+        return second_;
+    }
+
+    std::string to_string() const;
+};
+
+void print(const ValuePair<int, std::string>& vp)
+{
+    std::cout << "ValuePair: " <<  vp.to_string() << "\n";
+}
+
+template <typename T1, typename T2>
+std::string ValuePair<T1, T2>::to_string() const
+{
+    std::stringstream ss;
+    ss << "[ " << first_ << ", " << second_ << "]";
+    return ss.str();
+}
+
 TEST_CASE("class templates")
 {
-    // TODO
+    using namespace std::literals;
+
+    ValuePair<int, std::string> vp1{1, "text"s};
+    REQUIRE(vp1.first() == 1);
+    REQUIRE(vp1.second() == "text"s);
+
+    ValuePair<std::string, std::vector<int>> vp2("dataset", std::vector<int>{1, 2, 3, 4});
+    REQUIRE(vp2.first() == "dataset"s);
+    REQUIRE(vp2.second() == std::vector<int>{1, 2, 3, 4});
+
+    std::cout << vp2.to_string() << "\n";
 }
 
 TEST_CASE("template aliases")
